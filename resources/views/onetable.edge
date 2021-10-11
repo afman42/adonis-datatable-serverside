@@ -1,0 +1,197 @@
+<div class="card">
+    <div class="card-header"> 
+        <h4> Select One Table <a href="javascript:void(0);" class="btn btn-primary btn-tambah-modal">Tambah</a></h4>
+    </div>
+    <div class="card-body">
+        <table class="table table-striped table-bordered" id="table-artikel">
+            <thead>
+                <tr>
+                    <th> No. </th>
+                    <th> Judul Artikel</th>
+                    <th> Kategori </th>
+                    <th> Penulis </th>
+                    <th> Tanggal Posting </th>
+                    <th> Aksi </th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+<!-- Optional JavaScript -->
+
+<div class="modal fade" id="viewModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel"
+  aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLabel">Penulis</h5>
+        <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <div class="modal-body">
+          <table class="table table-bordered">
+              <tr>
+                  <td>Judul</td>
+                  <td id="judul"></td>
+              </tr>
+              <tr>
+                <td>Kategori</td>
+                <td id="kategori"></td>
+            </tr>
+            <tr>
+                <td>Penulis</td>
+                <td id="penulis"></td>
+            </tr>
+            <tr>
+                <td>Tgl Posting</td>
+                <td id="tgl"></td>
+            </tr>
+          </table>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
+        {{--  <a class="btn btn-primary" href="login.html">Logout</a>  --}}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+    var tabel = null;
+    $(document).ready(function() {
+
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
+
+        $('.card-header').on('click', '.btn-tambah-modal', function () {
+            $('#tambahModal').modal('show');
+            $('#formTambahss')[0].reset();
+            $('#exampleModalLabel').text("Tambah Artikel")
+            $('#action').val('Tambah');
+            // $('#saveBtn').html('Tambah');
+        })
+        
+        $('#formTambahss').on('submit', function(event) {
+            event.preventDefault();
+            if ($('#action').val() == 'Tambah') {
+                $.ajax({
+                    url: 'http://localhost:3333/simpan-artikel',
+                    method: 'POST',
+                    data: new FormData(this),
+                    contentType: false,
+                    cache: false,
+                    processData: false,
+                    dataType: "json",
+                    success: function(data) {
+                        var toast = "";
+                        console.log(data);
+                        if (data.message != null) {
+                            $('#formTambahss')[0].reset();
+                            $('#table-artikel').DataTable().ajax.reload();
+                            toast = toastr.success(data.message);
+                            $('#tambahModal').modal('hide');
+                        }
+                        toast;
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        var toast = "";
+                        const errorsJQ = JSON.parse(jqXHR.responseText)
+                        // console.log(errorsJQ.errors);
+                        for (let index = 0; index < errorsJQ.errors.length; index++) {
+                            let msg = errorsJQ.errors[index];
+                            toast = toastr.warning(msg.message);
+                            console.log(msg)
+                        }
+                        toast;
+                    }
+                })
+            }
+        })
+
+        $('#table-artikel').on('click', '.btn-view-modal', function () {
+            let judul = $(this).data('judul');
+            let kategori = $(this).data('kategori');
+            let penulis = $(this).data('penulis');
+            let tgl = $(this).data('tgl');
+            $('#viewModal').modal('show');
+            $('#judul').text(judul);
+            $('#kategori').text(kategori);
+            $('#penulis').text(penulis);
+            $('#tgl').text(tgl);
+            $('#exampleModalLabel').text("Penulis :" + penulis + '  Judul :' + judul)
+        })
+
+        var product_id;
+        $('#table-artikel').on('click', '.btn-delete-modal', function() {
+            product_id = $(this).data("id");
+            $('#ajaxHapus').modal('show');
+        });
+
+            $('#hapusAjax').on('submit', function(event){
+                event.preventDefault();
+                $.ajax({
+                url: `/hapus-artikel/` + product_id +'?_method=DELETE',
+                method: "POST",
+                success: function(data) {
+                    var toast = "";
+                    setTimeout(function() {
+                        $('#hapus_button').text('Menghapus...');
+                        $('#ajaxHapus').modal('hide');
+                        $('#table-artikel').DataTable().ajax.reload();
+                    }, 500);
+                    if (data.message != null) {
+                        toast = toastr.success(data.message);
+                    }
+                }
+                })
+            })
+
+        tabel = $('#table-artikel').DataTable({
+            "processing": true,
+            "responsive":true,
+            "serverSide": true,
+            "ordering": true, // Set true agar bisa di sorting
+            "order": [[ 0, 'asc' ]], // Default sortingnya berdasarkan kolom / field ke 0 (paling pertama)
+            "ajax":
+            {
+                "url": `{{ route('DatatablesController.view_data') }}`, // URL file untuk proses select datanya
+                "type": "GET"
+            },
+            "deferRender": true,
+            "aLengthMenu": [[5, 10, 50],[ 5, 10, 50]], // Combobox Limit
+            "columns": [
+                {"data": 'id_artikel',"sortable": false, 
+                    render: function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    }  
+                },
+                { "data": "judul" }, // Tampilkan judul
+                { "data": "kategori" },  // Tampilkan kategori
+                { "data": "penulis" },  // Tampilkan penulis
+                { "data": "tgl_posting", "render": 
+                    function( data, type, row, meta ){
+                        let L = luxon.DateTime.fromISO(data).toFormat('yyyy-MM-dd')
+                        // console.log(L)
+                        // return luxon.DateTime.local(data).toISODate();
+                        return L;
+                    }
+                },  // Tampilkan tgl posting
+                { "data": "id_artikel",
+                    "render": 
+                    function( data, type, row, meta ) {
+                        // console.log('meta ', meta);
+                        // console.log('row ', row);
+                        return '<a href="javascript:void(0);" class="btn btn-warning btn-view-modal" data-judul="'+row.judul+'" data-kategori="'+row.kategori+'" data-penulis="'+row.penulis+'" data-tgl="'+row.tgl_posting+'">Show</a> ' + '<a href="javascript:void(0);" class="btn btn-danger btn-delete-modal" data-id="'+data+'">Hapus</a>';
+                    }
+                },
+            ],
+        });
+    });
+
+
+</script>
